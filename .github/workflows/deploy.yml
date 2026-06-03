@@ -13,14 +13,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd /usr/share/nginx/html
-            sudo rm -f index.html
-            echo "<h1>Hello from GitHub Actions CI/CD</h1><p>Version 2</p>" | sudo tee index.html
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy Files to EC2
+        run: |
+          scp -r index.html deploy@${{ secrets.HOST }}:/tmp/
+
+      - name: Deploy on EC2
+        run: |
+          ssh deploy@${{ secrets.HOST }} "
+            sudo cp /tmp/index.html /usr/share/nginx/html/index.html
             sudo systemctl restart nginx
+          "
